@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B2029"/>
+      <stop offset="1" stop-color="#0C0F14"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.7" cy="0.3" r="0.6">
+      <stop offset="0" stop-color="#5FE3B5" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#5FE3B5" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ln" x1="110" y1="0" x2="402" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C8CFF"/>
+      <stop offset="1" stop-color="#5FE3B5"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="114" fill="url(#halo)"/>
+  <g fill="none" stroke="url(#ln)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M118 250 256 136l138 114M158 218v158h196V218M212 296l32 32 58-66" stroke-width="42" filter="url(#glow)" opacity=".85"/>
+    <path d="M118 250 256 136l138 114M158 218v158h196V218M212 296l32 32 58-66" stroke-width="24"/>
+  </g>
+</svg>

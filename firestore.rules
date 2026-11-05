@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// Regras do Zelo.
+// - Só membros de um espaço leem ou escrevem nele.
+// - Para entrar, a pessoa precisa apresentar o código de convite atual do espaço.
+// - Registros usam compare-and-swap: uma gravação só é aceita se a base (b) for a versão atual
+//   do servidor e a versão nova (u) for maior. Quem estava desatualizado é recusado, baixa a versão
+//   nova, junta campo a campo no aparelho e envia de novo. Nenhuma alteração é sobrescrita às cegas.
+// - O conteúdo dos registros é sempre cifrado no aparelho; o servidor só vê metadados.
+// - Presença guarda apenas em que lista/item (ids aleatórios) a pessoa está agora.
+// - O catálogo base de produtos é público para quem está logado; só quem o publicou primeiro altera.
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function household(hid) { return get(/databases/$(db)/documents/households/$(hid)); }
+    function isMember(hid) {
+      return signedIn() && exists(/databases/$(db)/documents/households/$(hid)/members/$(me()));
+    }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && me() == uid;
+    }
+
+    match /catalog/{domain} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.by == me() && request.resource.data.v is int;
+      allow update: if signedIn() && resource.data.by == me() && request.resource.data.by == me()
+        && request.resource.data.v is int && request.resource.data.v >= resource.data.v;
+      allow delete: if false;
+    }
+
+    match /households/{hid} {
+      allow create: if signedIn()
+        && request.resource.data.owner == me()
+        && request.resource.data.joinCode is string
+        && request.resource.data.joinCode.size() >= 8;
+      allow read: if isMember(hid);
+      allow update: if isMember(hid)
+        && resource.data.owner == me()
+        && request.resource.data.owner == resource.data.owner;
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow read: if isMember(hid);
+        allow create: if signedIn() && me() == uid
+          && request.resource.data.code == household(hid).data.joinCode;
+        allow update: if signedIn() && me() == uid
+          && request.resource.data.code == resource.data.code;
+        allow delete: if signedIn() && (me() == uid || household(hid).data.owner == me());
+      }
+
+      match /presence/{uid} {
+        allow read: if isMember(hid);
+        allow write: if isMember(hid) && me() == uid
+          && request.resource.data.keys().hasOnly(['list', 'item', 'at'])
+          && request.resource.data.at == request.time;
+      }
+
+      match /records/{rid} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['u', 'by', 'del', 'b', 'iv', 'ct', 'ts'])
+            && d.u is string && d.u.size() < 64
+            && d.by == me()
+            && d.del is bool
+            && (!('b' in d) || d.b == null || d.b is string)
+            && d.iv is bytes && d.ct is bytes && d.ct.size() < 1000000
+            && d.ts == request.time;
+        }
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && valid();
+        allow update: if isMember(hid) && valid()
+          && request.resource.data.u > resource.data.u
+          && request.resource.data.get('b', null) == resource.data.u;
+        allow delete: if isMember(hid) && resource.data.del == true;
+      }
+    }
+  }
+}
