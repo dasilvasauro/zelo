@@ -8,9 +8,12 @@ import { icon, sheet, toast, confirmDialog } from '../ui/ui.js';
 import { priceChart, stockChart, barsSvg } from '../ui/chart.js';
 import { askQty } from '../ui/numpad.js';
 import { app, who } from '../state.js';
+import { unitsOf, byPlace, PLACES, defaultPlace } from '../core/units.js';
+import { markersHtml, bindMarkers } from '../ui/markers.js';
+import { popover } from '../ui/pickers.js';
+import { tapUnit, dropUnits } from './unitactions.js';
 import { haptic } from '../ui/haptics.js';
 
-const PLACES = ['Despensa', 'Geladeira', 'Freezer', 'Área de serviço', 'Banheiro', 'Garagem', 'Depósito', 'Outro'];
 const INT_UNITS = new Set(['un', 'pct', 'cx', 'dz', 'lata', 'fr', 'rolo', 'saco', 'gal', 'par', 'kit']);
 export const isInt = (u) => INT_UNITS.has(u);
 
@@ -118,6 +121,7 @@ export function openStock(pid) {
             <button type="button" class="btn big" data-buyin>${icon('plus')}Entrou</button>
             <button type="button" class="btn big" data-list>${icon('cart')}Na lista</button>
           </div>
+          ${whereHtml(S, pid, unit)}
           <div class="chart small" data-schart></div>
           <div class="kpis strip">
             <div><span>Uso por dia</span><b>${c.rate > 0 ? fmtNum(c.rate, 2) : '—'}</b><small>${esc(unitLabel(unit))}${c.useRate === 0 && c.buyRate > 0 ? ', pelo ritmo de compra' : ''}</small></div>
@@ -127,7 +131,8 @@ export function openStock(pid) {
           ${weeks.some((w) => w.v > 0) ? `<h4 class="sub">Saídas por semana</h4>${barsSvg(weeks, { h: 54 })}` : ''}
           <div class="grid2 stock-cfg">
             <button type="button" class="tile" data-min><span>Quantidade mínima</span><b>${inv?.min != null ? fmtQty(inv.min, unit) : 'Definir'}</b></button>
-            <label class="field"><span>Onde fica</span><select data-place><option value="">—</option>${PLACES.map((x) => `<option${x === inv?.place ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
+            <label class="field"><span>Guardar os novos em</span><select data-place>${PLACES.map((x) => `<option${x === defaultPlace(pid, inv) ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
+            <label class="field"><span>Ao abrir, guardar em</span><select data-openplace><option value="">No mesmo lugar</option>${PLACES.map((x) => `<option${x === inv?.openPlace ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
           </div>
           <h4 class="sub">Preços</h4>
           ${priceBlock(S, pid)}
@@ -168,6 +173,26 @@ export function openStock(pid) {
           if (n != null) await ensureInv(pid, { min: n });
         };
         $('[data-place]').onchange = (e) => ensureInv(pid, { place: e.target.value });
+        $('[data-openplace]').onchange = (e) => ensureInv(pid, { openPlace: e.target.value || null });
+        el.querySelectorAll('[data-move]').forEach((btn) =>
+          btn.addEventListener('click', () => {
+            const from = btn.dataset.move;
+            popover(
+              btn,
+              (body, closePop) => {
+                body.innerHTML = `<div class="pick-list">${PLACES.filter((x) => x !== from).map((x) => `<button type="button" class="pick-opt" data-to="${esc(x)}"><span>${esc(x)}</span></button>`).join('')}</div>`;
+                body.querySelectorAll('[data-to]').forEach((b) =>
+                  b.addEventListener('click', async () => {
+                    closePop(false);
+                    const units = unitsOf(store.snapshot(), pid).filter((u) => u.place === from);
+                    await dropUnits(units, b.dataset.to);
+                  }),
+                );
+              },
+              { title: `Mover de ${from} para`, cls: 'pop-list' },
+            );
+          }),
+        );
         $('[data-archive]').onclick = async () => {
           if (!(await confirmDialog('Tirar este item do estoque? O histórico de preços continua.', { ok: 'Tirar' }))) return;
           await ensureInv(pid, { archived: true });
@@ -175,10 +200,37 @@ export function openStock(pid) {
         };
       };
       draw();
-      unsub = store.subscribe(() => el.isConnected && draw());
+      const unbind = bindMarkers(el.querySelector('[data-body]'), { resolve: (id) => unitsOf(store.snapshot(), id), places: PLACES, onTap: tapUnit, onDrop: dropUnits });
+      unsub = store.subscribe(() => el.isConnected && !app.dragging && draw());
+      const prev = unsub;
+      unsub = () => {
+        prev();
+        unbind();
+      };
     },
     onClose: () => unsub?.(),
   });
+}
+
+// "Onde está": as embalagens de cada lugar, com o que está aberto e um atalho para mover.
+function whereHtml(S, pid, unit) {
+  const units = unitsOf(S, pid);
+  if (!units.length) return '';
+  const name = prodOf(pid, S.invByPid.get(pid)).name;
+  return `<h4 class="sub">Onde está <small class="muted">&nbsp;toque para abrir ou usar · segure para mover</small></h4>
+    <div class="where" data-name="${esc(name)}">${[...byPlace(units)]
+      .map(([place, us]) => {
+        const open = us.filter((u) => u.state === 'open');
+        const since = open.length ? Math.max(0, Math.floor((nowMs() - Math.min(...open.map((u) => u.openedAt || nowMs()))) / 86400000)) : null;
+        return `<div class="where-grp" data-drop-place="${esc(place)}">
+          <div class="where-head"><b>${esc(place)}</b>
+            <span class="muted">${open.length ? `${open.length} aberto${open.length > 1 ? 's' : ''}${since != null ? (since ? ` há ${since} dia${since > 1 ? 's' : ''}` : ' hoje') : ''}` : ''}${open.length && us.length - open.length ? ' · ' : ''}${us.length - open.length ? `${us.length - open.length} fechado${us.length - open.length > 1 ? 's' : ''}` : ''}</span>
+            <button type="button" class="btn small ghost where-move" data-move="${esc(place)}" aria-label="Mover tudo de ${esc(place)} para outro lugar">Mover</button>
+          </div>
+          ${markersHtml(us, { unit })}
+        </div>`;
+      })
+      .join('')}</div>`;
 }
 
 // Saídas por semana nas últimas 8 semanas.

@@ -68,7 +68,7 @@ export async function editPrice(itemId, { fromCheck = false, focus = 'price' } =
     fields: [
       { key: 'price', label: weight ? `Preço por ${ul}` : 'Preço unitário', kind: 'money', value: base.price || 0, mode: weight ? 'unit' : undefined },
       ...(weight ? [{ key: 'total', label: 'Total da etiqueta', kind: 'money', value: itemTotal(base), mode: 'total' }] : []),
-      { key: 'qty', label: weight ? 'Peso' : 'Quantidade', kind: 'qty', value: Number(base.qty) || 1, unit, int: !weight, min: 0 },
+      { key: 'qty', label: weight ? 'Peso' : 'Quantidade', kind: 'qty', value: Number(base.qty) || 1, unit, int: !weight, min: weight ? 0.1 : 1 },
     ],
     active: focus === 'qty' ? 'qty' : startMode === 'total' ? 'total' : 'price',
     info: (v, mode) => {

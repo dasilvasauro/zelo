@@ -106,17 +106,11 @@ export function listen({ onPartial, onFinal, onEnd, onError }) {
   r.interimResults = true;
   r.continuous = true; // continua enquanto o dedo estiver no botão
   r.maxAlternatives = 1;
-  let finalText = '';
-  let interim = '';
+  let text = '';
   let aborted = false;
   r.onresult = (e) => {
-    interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const res = e.results[i];
-      if (res.isFinal) finalText += res[0].transcript + ' ';
-      else interim += res[0].transcript;
-    }
-    onPartial?.((finalText + interim).trim());
+    text = joinResults(e.results);
+    onPartial?.(text);
   };
   r.onerror = (e) => {
     const err = e.error || 'error';
@@ -126,7 +120,6 @@ export function listen({ onPartial, onFinal, onEnd, onError }) {
   };
   r.onend = () => {
     // Ao soltar, o Safari às vezes não promove o último trecho a final: usa o parcial.
-    const text = (finalText + interim).trim();
     if (!aborted && text) onFinal?.(text);
     onEnd?.({ aborted, empty: !text });
   };
@@ -153,6 +146,32 @@ export function listen({ onPartial, onFinal, onEnd, onError }) {
       }
     },
   };
+}
+
+// Junta os trechos reconhecidos sem repetir.
+// No Chrome para Android, em modo contínuo, cada resultado novo costuma trazer a frase inteira de novo
+// ("meio quilo", "meio quilo de", "meio quilo de patinho"…), e somar tudo gerava
+// "meio quilo meio quilo de meio quilo de patinho". Aqui, um trecho que começa com o anterior o substitui,
+// e um trecho já contido no anterior é ignorado.
+const nrm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+export function joinResults(results) {
+  const parts = [];
+  for (let i = 0; i < results.length; i++) {
+    const t = String(results[i][0]?.transcript || '').trim();
+    if (!t) continue;
+    const last = parts[parts.length - 1];
+    if (last != null) {
+      const a = nrm(last);
+      const b = nrm(t);
+      if (b.startsWith(a)) {
+        parts[parts.length - 1] = t;
+        continue;
+      }
+      if (a.startsWith(b) || a.endsWith(b)) continue;
+    }
+    parts.push(t);
+  }
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 // Reconhecimento simulado (modo demo): "digita" uma frase de exemplo enquanto o botão está pressionado.

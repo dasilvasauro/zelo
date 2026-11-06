@@ -10,6 +10,7 @@ import * as store from './store.js';
 import { product, sectionName, sectionOrder, domainOf, guessSection } from './catalog.js';
 import { nowMs, today } from '../lib/clock.js';
 import { addDays, isoOf, uid, norm, WEIGHT_UNITS } from '../lib/util.js';
+import { trimTo, purchaseUnits } from './units.js';
 
 const DAY = 86400000;
 
@@ -133,7 +134,13 @@ export async function addMove(pid, kind, n, note = '') {
   const data = { pid, kind, at: nowMs(), d: today(), note };
   if (kind === 'ajuste') data.abs = n;
   else data.delta = kind === 'compra' ? Math.abs(n) : -Math.abs(n);
-  return store.save('mov', data);
+  const id = await store.save('mov', data);
+  // Uso ou contagem menor: as embalagens registradas acompanham (abertas saem primeiro).
+  if (kind !== 'compra') {
+    const S = store.snapshot();
+    await trimTo(S, pid, invQty(S, pid));
+  }
+  return id;
 }
 
 /* ---------- Preços ---------- */
@@ -293,6 +300,7 @@ export async function checkout(S, list, { leftover = 'move', storeId, payments }
       writes.push({ type: 'inv', id: `i_${pid}`, data: { pid, name: it.name || p.name, unit: it.unit || p.unit, essential: false, min: null, place: '' } });
     }
     writes.push({ type: 'mov', id: `mv_${it.id}`, data: { pid, kind: 'compra', delta: Number(it.qty) || 1, at, d, listId: list.id, store: storeId || '' } });
+    writes.push(...purchaseUnits(S, it, pid));
     if (it.price > 0) writes.push({ type: 'price', id: `pr_${it.id}`, data: { pid, price: it.price, qty: Number(it.qty) || 1, unit: it.unit, total: itemTotal(it), store: storeId || '', listId: list.id, at, d } });
   }
   let nextId = null;

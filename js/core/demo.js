@@ -50,7 +50,7 @@ const BASKET = [
   ['Shampoo', 1890, 1, 40],
 ];
 const ESSENTIALS = {
-  'Leite integral 1L': [2, 1],
+  'Leite integral 1L': [2, 5],
   'Café em pó': [1, 0],
   'Arroz branco 5kg': [1, 1],
   'Feijão carioca': [1, 2],
@@ -137,8 +137,18 @@ export async function seedDemo() {
   for (const b of basket) {
     const e = ESSENTIALS[b.name];
     const p = prodOf(b.pid);
-    W('inv', { pid: b.pid, name: p.name, unit: p.unit, essential: !!e, min: e ? e[0] : null, place: p.domain === 'casa' ? 'Área de serviço' : /Leite|Iogurte|Queijo|Manteiga|Ovos|frango|Carne/i.test(p.name) ? 'Geladeira' : 'Despensa' }, `i_${b.pid}`);
+    W('inv', { pid: b.pid, name: p.name, unit: p.unit, essential: !!e, min: e ? e[0] : null, place: /Banana|Batata|Cebola|Tomate/.test(p.name) ? 'Fruteira' : '' }, `i_${b.pid}`);
     if (e) W('mov', { pid: b.pid, kind: 'ajuste', abs: e[1], at: now - 2 * DAY, d: addDays(today(), -2), note: 'contagem' });
+  }
+
+  // Embalagens abertas e lugares (o leite fica fechado na despensa e, aberto, vai para a geladeira).
+  const OPEN = { 'Leite integral 1L': ['Despensa', 'Geladeira'], 'Papel higiênico': ['Despensa', 'Banheiro'], 'Feijão carioca': ['Armário da cozinha', null], 'Óleo de soja': ['Armário da cozinha', null], 'Pasta de dente': ['Banheiro', null], 'Ovos brancos': ['Geladeira', null] };
+  for (const [name, [place, openPlace]] of Object.entries(OPEN)) {
+    const b = basket.find((x) => x.name === name);
+    if (!b) continue;
+    const inv = writes.find((w) => w.id === `i_${b.pid}`);
+    if (inv) Object.assign(inv.data, { place, openPlace });
+    W('unit', { pid: b.pid, place: openPlace || place, state: 'open', amount: 1, openedAt: now - Math.round(rnd(1, 4)) * DAY });
   }
 
   // Lista aberta, já começada no mercado.

@@ -41,11 +41,8 @@ export function openNumpad({ title, sub = '', fields, active, info, actions, top
         .map(
           (f) => `<div class="np-field${f.key === cur ? ' on' : ''}" data-field="${f.key}" role="button" tabindex="0" aria-pressed="${f.key === cur}">
         <span>${esc(f.label)}</span>
-        <div class="np-val-row">
-          ${f.kind === 'qty' ? `<button type="button" class="np-step" data-step="-1" data-for="${f.key}" aria-label="Diminuir">${icon('minus')}</button>` : ''}
-          <b class="np-val" data-val="${f.key}">${showVal(f)}</b>
-          ${f.kind === 'qty' ? `<button type="button" class="np-step" data-step="1" data-for="${f.key}" aria-label="Aumentar">${icon('plus')}</button>` : ''}
-        </div>
+        <div class="np-val-row"><b class="np-val" data-val="${f.key}">${showVal(f)}</b></div>
+        ${f.kind === 'qty' ? `<div class="np-steps"><button type="button" class="np-step" data-step="-1" data-for="${f.key}" aria-label="Diminuir">${icon('minus')}</button><button type="button" class="np-step" data-step="1" data-for="${f.key}" aria-label="Aumentar">${icon('plus')}</button></div>` : ''}
       </div>`,
         )
         .join('');
@@ -109,8 +106,10 @@ export function openNumpad({ title, sub = '', fields, active, info, actions, top
         };
         const step = (key, d) => {
           const f = F(key);
-          const s = f.int || vals[key] >= 1 || d > 0 ? 1 : 0.1;
-          let v = Math.round((vals[key] + d * s) * 1000) / 1000;
+          // Inteiros andam de 1 em 1; peso e volume, de 0,1 em 0,1 (encaixando no décimo mais próximo).
+          const s = f.step || (f.int ? 1 : 0.1);
+          const snapped = Math.round(vals[key] / s) * s;
+          let v = Math.round((Math.abs(snapped - vals[key]) > 1e-9 ? (d > 0 ? Math.ceil(vals[key] / s) : Math.floor(vals[key] / s)) * s : vals[key] + d * s) * 1000) / 1000;
           v = Math.max(f.min ?? 0, v);
           vals[key] = v;
           buf[key] = fmtNum(v).replace(/\./g, '');

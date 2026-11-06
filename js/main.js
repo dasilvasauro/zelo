@@ -21,7 +21,7 @@ import { openAdd } from './views/add.js';
 import { conflictCards, bindConflicts } from './views/common.js';
 import { haptic } from './ui/haptics.js';
 
-app.version = '1.3.0';
+app.version = '1.5.0';
 const DEMO_ONLY = !!window.ZELO_DEMO_ONLY; // versão publicada só para experimentar
 const VIEWS = { listas: lists, estoque: inventory, precos: prices, ajustes: settings };
 const NAV = [
@@ -207,6 +207,11 @@ function shell() {
     dot.setAttribute('aria-label', L[st] || '');
   });
   if (app.demo) demobar();
+  // Altura do cabeçalho fixo, para as barras que grudam logo abaixo dele (lugares, letras).
+  const head = document.querySelector('.head');
+  const setHead = () => document.documentElement.style.setProperty('--head-h', `${head.offsetHeight}px`);
+  setHead();
+  new ResizeObserver(setHead).observe(head);
 }
 
 function onNew() {
@@ -274,7 +279,8 @@ const rerender = (() => {
   let raf = 0;
   return () => {
     cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => render(false));
+    // Durante um arraste, a tela não é redesenhada (o elemento arrastado sumiria); redesenha ao soltar.
+    raf = requestAnimationFrame(() => (app.dragging ? rerender() : render(false)));
   };
 })();
 

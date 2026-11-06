@@ -38,6 +38,7 @@ const WATCH = {
   item: { price: 'preço', total: 'total da etiqueta', qty: 'quantidade', name: 'nome', note: 'observação', unit: 'unidade' },
   list: { name: 'nome da lista', store: 'local da compra', payments: 'formas de pagamento' },
   inv: { min: 'quantidade mínima', essential: 'essencial', place: 'local' },
+  unit: { place: 'onde está guardado' },
 };
 const CONFLICT_WINDOW = 60 * 60000;
 let pending = []; // conflitos aguardando decisão
@@ -427,7 +428,7 @@ export const stats = () => {
 
 const view = (r) => ({ id: r.id, ...r.data, _by: r.by, _cb: r.cb, _ca: r.ca, _u: r.u, _fb: r.fb || {}, _fv: r.fv || {} });
 
-const TYPES = ['member', 'store', 'prod', 'inv', 'mov', 'list', 'item', 'price', 'pref'];
+const TYPES = ['member', 'store', 'prod', 'inv', 'mov', 'list', 'item', 'price', 'pref', 'unit'];
 
 // Fotografia imutável do estado, com índices prontos, reconstruída só quando algo muda.
 export function snapshot() {
@@ -457,6 +458,7 @@ export function snapshot() {
   S.itemsByList = group(S.item, 'listId');
   S.movsByPid = group(S.mov, 'pid');
   S.pricesByPid = group(S.price, 'pid');
+  S.unitsByPid = group(S.unit, 'pid');
   S.invByPid = new Map(S.inv.map((x) => [x.pid, x]));
   S.prodById = new Map(S.prod.map((x) => [x.id, x]));
   snap = Object.freeze(S);

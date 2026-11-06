@@ -1,6 +1,6 @@
 // Service worker do Zelo: o app inteiro funciona offline depois da primeira abertura.
 // Ao publicar uma nova versão, aumente VERSION aqui e app.version em js/main.js.
-const VERSION = 'zelo-v1.3.0';
+const VERSION = 'zelo-v1.5.0';
 const SHELL = [
   './',
   'index.html',
@@ -28,6 +28,9 @@ const SHELL = [
   'js/main.js',
   'js/state.js',
   'js/ui/chart.js',
+  'js/views/unitactions.js',
+  'js/ui/markers.js',
+  'js/core/units.js',
   'js/ui/haptics.js',
   'js/ui/numpad.js',
   'js/ui/pickers.js',

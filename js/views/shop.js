@@ -128,7 +128,7 @@ export function render(el, listId) {
             : groups.map((g) => `<section class="grp" data-grp="${esc(g.key)}">${g.label ? `<h3 class="grp-head">${esc(g.label)}<small>${g.items.length}</small></h3>` : ''}${g.items.map(row).join('')}</section>`).join('')
       }
     </div>
-    ${items.length > 8 ? railHtml(letters) : ''}
+    ${items.length >= 5 ? railHtml(letters) : ''}
 
     ${confs.length ? `<div class="shop-conf">${conflictCards(S, confs)}</div>` : ''}
 
