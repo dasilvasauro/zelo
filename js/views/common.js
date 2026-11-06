@@ -2,7 +2,7 @@
 import * as store from '../core/store.js';
 import * as cat from '../core/catalog.js';
 import { trend, storeName, prodOf } from '../core/domain.js';
-import { esc, money, fmtPct, fmtDay, norm, uid } from '../lib/util.js';
+import { esc, money, fmtPct, fmtDay, norm, uid, titleCase } from '../lib/util.js';
 import { icon, sheet, toast, colorPicker, COLORS, seg } from '../ui/ui.js';
 import { app, who } from '../state.js';
 
@@ -254,7 +254,7 @@ export function createProduct(name = '', id) {
           const section = f.section.value;
           saved = await store.save(
             'prod',
-            { name: f.name.value.trim(), section, domain: cat.domainOf(section), unit: f.unit.value, aliases: f.aliases.value.split(',').map((a) => a.trim()).filter(Boolean) },
+            { name: titleCase(f.name.value), section, domain: cat.domainOf(section), unit: f.unit.value, aliases: f.aliases.value.split(',').map((a) => a.trim()).filter(Boolean) },
             id || `p_${uid(10)}`,
           );
           close();

@@ -163,3 +163,20 @@ export function fmtQty(n, u = 'un') {
 // Variação percentual de b em relação a a (a = referência).
 export const pctDiff = (a, b) => (a > 0 ? ((b - a) / a) * 100 : 0);
 export const fmtPct = (p) => `${Math.abs(p) < 10 ? Math.abs(p).toFixed(1).replace('.', ',') : Math.round(Math.abs(p))}%`;
+
+// Nomes de produto: cada palavra com inicial maiúscula ("Biscoito Oreo"), mantendo minúsculas só as
+// ligações curtas do português no meio do nome ("Pão de Forma", "Leite sem Lactose") e preservando
+// siglas e medidas já escritas ("PVC", "1L", "AC-III").
+const LOWER_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'com', 'em', 'para', 'sem', 'ao', 'na', 'no', 'nas', 'nos']);
+export function titleCase(s) {
+  return String(s ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((w, i) => {
+      const lw = w.toLocaleLowerCase('pt-BR');
+      if (i > 0 && LOWER_WORDS.has(lw)) return lw;
+      return w.charAt(0).toLocaleUpperCase('pt-BR') + w.slice(1);
+    })
+    .join(' ');
+}

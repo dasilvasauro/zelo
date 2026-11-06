@@ -151,6 +151,9 @@ export async function seedDemo() {
     W('unit', { pid: b.pid, place: openPlace || place, state: 'open', amount: 1, openedAt: now - Math.round(rnd(1, 4)) * DAY });
   }
 
+  // Grupos essenciais ativos na demo.
+  W('pref', { active: ['mistura', 'laticinios', 'frutas', 'cafe', 'limpeza'], days: {} }, 'pref_groups');
+
   // Lista aberta, já começada no mercado.
   const open = W('list', { name: 'Compras da semana', domain: 'mercado', store: st.atac, status: 'open', createdAt: now - 3600000, payments: [] });
   const want = ['Leite integral 1L', 'Café em pó', 'Pão de forma', 'Banana prata', 'Ovos brancos', 'Peito de frango', 'Iogurte natural', 'Macarrão espaguete', 'Molho de tomate', 'Detergente', 'Papel higiênico', 'Queijo mussarela', 'Cream cheese', 'Bacon', 'Refrigerante 2L', 'Biscoito recheado', 'Shampoo', 'Ketchup', 'Batata chips', 'Água com gás'];

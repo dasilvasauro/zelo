@@ -168,10 +168,45 @@ export function joinResults(results) {
         continue;
       }
       if (a.startsWith(b) || a.endsWith(b)) continue;
+      // Sobreposição: "meio quilo de" + "de patinho" → "meio quilo de patinho"
+      const at = last.split(/\s+/);
+      const bt = t.split(/\s+/);
+      let k = Math.min(at.length, bt.length);
+      for (; k > 0; k--) if (nrm(at.slice(-k).join(' ')) === nrm(bt.slice(0, k).join(' '))) break;
+      if (k > 0 && (k > 1 || nrm(bt[0]).length > 2)) {
+        parts[parts.length - 1] = [...at, ...bt.slice(k)].join(' ');
+        continue;
+      }
     }
     parts.push(t);
   }
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
+  return cleanTranscript(parts.join(' '));
+}
+
+// Remove repetições seguidas de palavras ou trechos ("leite leite integral", "biscoito oreo biscoito oreo"),
+// que o reconhecimento às vezes produz ao corrigir o que ouviu. Mais lento que somar, mas evita registros errados.
+export function cleanTranscript(text) {
+  let toks = String(text || '').split(/\s+/).filter(Boolean);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    outer: for (let n = Math.min(8, Math.floor(toks.length / 2)); n >= 1; n--) {
+      for (let i = 0; i + 2 * n <= toks.length; i++) {
+        let same = true;
+        for (let k = 0; k < n; k++)
+          if (nrm(toks[i + k]) !== nrm(toks[i + n + k])) {
+            same = false;
+            break;
+          }
+        if (same) {
+          toks.splice(i + n, n);
+          changed = true;
+          break outer;
+        }
+      }
+    }
+  }
+  return toks.join(' ').trim();
 }
 
 // Reconhecimento simulado (modo demo): "digita" uma frase de exemplo enquanto o botão está pressionado.

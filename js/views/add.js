@@ -10,9 +10,9 @@ import * as voice from '../core/voice.js';
 import { parseMany } from '../core/parse.js';
 import { addToList, essentialsLow, frequent, listItems, prodOf, nameOf, isWeight, priceModeFor, perUnit } from '../core/domain.js';
 import { prefs } from '../state.js';
-import { esc, money, fmtNum, unitLabel, norm } from '../lib/util.js';
+import { esc, money, fmtNum, unitLabel, norm, titleCase } from '../lib/util.js';
 import { icon, sheet, toast } from '../ui/ui.js';
-import { railHtml, bindRail, letterOf } from '../ui/rail.js';
+import { railHtml, bindRail, letterOf, scrollToEl } from '../ui/rail.js';
 import { createProduct } from './common.js';
 import { haptic } from '../ui/haptics.js';
 
@@ -38,6 +38,7 @@ export function openAdd(listId) {
       <div class="add-body" data-body></div>
       <div class="add-preview" data-preview hidden></div>
       <div class="add-foot">
+        <div data-azslot></div>
         <form class="add-input" data-f autocomplete="off">
           <div class="search-in big">${icon('search')}<input name="q" type="text" enterkeyhint="done" placeholder="Digite: 2 leite 5,49" aria-label="Buscar ou digitar itens" data-q></div>
         </form>
@@ -66,6 +67,7 @@ export function openAdd(listId) {
       const draw = () => {
         const S = store.snapshot();
         const counts = inList();
+        if (tab !== 'az' || q.value.trim()) el.querySelector('[data-azslot]').innerHTML = '';
         el.querySelectorAll('[data-tab]').forEach((b) => {
           b.classList.toggle('on', b.dataset.tab === tab && !q.value.trim());
           b.setAttribute('aria-selected', b.dataset.tab === tab);
@@ -81,8 +83,12 @@ export function openAdd(listId) {
           const lastRaw = last ? last.text : text;
           const term = last?.known ? last.name : (last?.name || lastRaw.replace(/r\$\s*/gi, '').replace(/\d+([.,]\d+)?\s*(kg|g|l|ml|x|un)?\b/gi, '')).replace(/\s+/g, ' ').trim();
           const res = term ? cat.search(term, 40) : [];
+          // O que foi digitado, limpo de números e unidades, para poder criar exatamente esse produto
+          // ("Leite Integral" mesmo que o catálogo sugira "Leite Integral 1L").
+          const typed = titleCase(lastRaw.replace(/r\$\s*\S+/gi, '').replace(/\d+([.,]\d+)?\s*(kg|g|l|ml|x|un|pct|cx)?\b/gi, '').replace(/^\s*(um|uma|dois|duas|tr[eê]s)\s+/i, '').replace(/\s+/g, ' ').trim());
+          const createName = typed && !res.some((p) => norm(p.name) === norm(typed)) ? typed : term && !res.some((p) => norm(p.name) === norm(term)) ? term : '';
           body.innerHTML = `<div class="cat-list">${res.map((p) => row(p, counts)).join('')}
-            ${term && !res.some((p) => norm(p.name) === norm(term)) ? `<button type="button" class="cat-row create" data-create="${esc(term)}">${icon('plus')}<span>Criar produto “${esc(term)}”</span></button>` : ''}</div>`;
+            ${createName ? `<button type="button" class="cat-row create" data-create="${esc(createName)}">${icon('plus')}<span>Criar produto “${esc(createName)}”</span></button>` : ''}</div>`;
           prev.hidden = !parsed.length;
           prev.innerHTML = parsed.length
             ? `<div class="pv-items">${parsed.map((x) => `<span class="pv${x.known ? '' : ' unknown'}">${fmtNum(x.qty)} ${x.unit !== 'un' ? esc(unitLabel(x.unit)) + ' ' : '× '}<b>${esc(x.name)}</b>${x.known ? '' : ' <em>novo</em>'}${pricePreview(x)}</span>`).join('')}</div>
@@ -127,11 +133,12 @@ export function openAdd(listId) {
             }
             html += row(p, counts);
           }
-          body.innerHTML = `<div class="az-wrap"><div class="cat-list">${html}</div>${railHtml(letters)}</div>`;
-          bindRail(body, (l) => {
-            const h = body.querySelector(`[data-letter="${l}"]`);
-            if (h) body.scrollTo({ top: h.offsetTop - 4 });
-          });
+          body.innerHTML = `<div class="cat-list">${html}</div>`;
+          const slot = el.querySelector('[data-azslot]');
+          if (!slot.firstChild) {
+            slot.innerHTML = railHtml(letters, 'in-sheet');
+            bindRail(slot, (l) => scrollToEl(body.querySelector(`[data-letter="${l}"]`), { scroller: body }));
+          }
         }
       };
 
@@ -206,7 +213,14 @@ export function openAdd(listId) {
       });
 
       const addParsed = async (text = q.value, { focus = true } = {}) => {
-        const items = parseMany(text);
+        // Sem repetir o mesmo item dito duas vezes na mesma fala.
+        const seen = new Set();
+        const items = parseMany(text).filter((x) => {
+          const k = (x.pid || norm(x.name)) + '|' + x.qty;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
         if (!items.length) return;
         const ids = [];
         for (const x of items)
@@ -255,7 +269,7 @@ export function openAdd(listId) {
 }
 
 /* ---------- Botão de voz: segurar para falar ---------- */
-function voiceRowHtml() {
+export function voiceRowHtml() {
   const demo = document.documentElement.classList.contains('is-demo');
   return `<div class="voice-row">
     <button type="button" class="voice-btn" data-vbtn data-state="checking">
@@ -268,7 +282,7 @@ function voiceRowHtml() {
 }
 
 // Liga o botão: estados de permissão, segurar para falar, arrastar para cima para cancelar.
-function bindVoice(root, { onPartial, onFinal, onCancel }) {
+export function bindVoice(root, { onPartial, onFinal, onCancel }) {
   const btn = root.querySelector('[data-vbtn]');
   if (!btn) return null;
   const label = root.querySelector('[data-vlabel]');

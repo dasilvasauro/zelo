@@ -4,6 +4,7 @@ import * as cat from '../core/catalog.js';
 import { inventoryRows, invSeries, consumption, addMove, ensureInv, newList, addToList, prodOf } from '../core/domain.js';
 import { unitsOf, byPlace, placeOrder, PLACES } from '../core/units.js';
 import { tapUnit, dropUnits } from './unitactions.js';
+import { openStockInput } from './stockinput.js';
 import { markersHtml, bindMarkers, markerIcon } from '../ui/markers.js';
 import { railHtml, bindRail, letterOf } from '../ui/rail.js';
 import { popover } from '../ui/pickers.js';
@@ -15,6 +16,8 @@ import { openStock, isInt } from './product.js';
 import { pickProduct } from './common.js';
 import { app, prefs, setPref } from '../state.js';
 import { haptic } from '../ui/haptics.js';
+import { groupCardsHtml, bindGroupCards } from './groups.js';
+import { activeGroups } from '../core/groups.js';
 
 export const title = 'Estoque';
 let q = '';
@@ -144,15 +147,18 @@ export function render(el) {
         ${MODES.map(([v, l, ic]) => `<button type="button" data-mode="${v}" class="${mode === v ? 'on' : ''}" aria-checked="${mode === v}" role="radio">${icon(ic, 'sm2')}${l} <em>${v === 'essenciais' ? ess.length : v === 'tudo' ? all.length : inStock.length}</em></button>`).join('')}
       </div>
       <div class="inv-search">
-        <div class="search-in">${icon('search')}<input type="search" placeholder="Buscar no estoque" value="${esc(q)}" data-q aria-label="Buscar no estoque"></div>
+        <div class="search-in">${icon('search')}<input type="search" placeholder="Buscar" value="${esc(q)}" data-q aria-label="Buscar no estoque"></div>
         <button type="button" class="btn small ghost dom-btn${dom !== 'todos' ? ' on' : ''}" data-dombtn aria-label="Filtrar por tipo: ${esc(domLabel)}">${esc(domLabel)}${icon('down', 'sm2')}</button>
+        <button type="button" class="btn small primary si-btn" data-stockin aria-label="Atualizar estoque digitando ou falando">${icon('mic', 'sm2')}Atualizar</button>
       </div>
     </div>
     ${placeChips}
+    ${mode === 'essenciais' ? groupCardsHtml(activeGroups(S)) : ''}
+    ${mode === 'essenciais' && rows.length ? `<div class="ess-tools"><button type="button" class="btn small ghost" data-essplus>${icon('star', 'sm2')}Marcar essencial</button></div>` : ''}
     ${mode === 'essenciais' && low.length ? `<div class="inv-alert"><span><b>${low.length}</b> ${low.length === 1 ? 'essencial precisa' : 'essenciais precisam'} de reposição</span><button type="button" class="btn small primary" data-tolist>${icon('cart')}Pôr na lista</button></div>` : ''}
     <div class="stock-list">${body}</div>
     <div class="mk-legend"><span class="mk closed sm">${markerIcon('closed')}</span>fechado <span class="mk open sm">${markerIcon('open')}</span>aberto · toque para abrir e, aberto, quando acabar · segure e arraste para mudar de lugar</div>
-    ${letters.length > 5 ? railHtml([...new Set(letters)]) : ''}
+    ${letters.length > 5 ? railHtml([...new Set(letters)], 'dock') : ''}
   </div>`;
 
   const wrap = el.querySelector('.inv-wrap');
@@ -222,7 +228,10 @@ export function render(el) {
     toast(`${low.length} itens na lista ${store.get(id)?.name}`, { action: 'Abrir', onAction: () => app.nav(`lista-${id}`) });
   });
   $('[data-addess]')?.addEventListener('click', addEssential);
-  $('[data-addinv]')?.addEventListener('click', addManual);
+  $('[data-addinv]')?.addEventListener('click', openStockInput);
+  $('[data-stockin]').addEventListener('click', openStockInput);
+  bindGroupCards(wrap);
+  $('[data-essplus]')?.addEventListener('click', addEssential);
 }
 
 export async function addEssential() {
@@ -246,4 +255,5 @@ export async function addManual() {
 }
 
 // Ação do botão + nesta tela.
-export const fab = () => ((prefs().invMode || 'essenciais') === 'essenciais' ? addEssential() : addManual());
+// O + do estoque abre a atualização rápida (contagem ou entrada, por texto ou voz).
+export const fab = () => openStockInput();

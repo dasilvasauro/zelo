@@ -21,7 +21,7 @@ import { openAdd } from './views/add.js';
 import { conflictCards, bindConflicts } from './views/common.js';
 import { haptic } from './ui/haptics.js';
 
-app.version = '1.5.0';
+app.version = '1.6.0';
 const DEMO_ONLY = !!window.ZELO_DEMO_ONLY; // versão publicada só para experimentar
 const VIEWS = { listas: lists, estoque: inventory, precos: prices, ajustes: settings };
 const NAV = [
@@ -245,9 +245,9 @@ function route() {
   if (!me.hidden) me.innerHTML = avatar(28);
   const fab = document.querySelector('.fab[data-new]');
   fab.hidden = immersive || !['listas', 'estoque'].includes(current);
-  fab.setAttribute('aria-label', current === 'estoque' ? 'Adicionar ao estoque' : 'Nova lista');
+  fab.setAttribute('aria-label', current === 'estoque' ? 'Atualizar estoque (digitar ou falar)' : 'Nova lista');
   const nl = $('[data-newlabel]');
-  if (nl) nl.textContent = current === 'estoque' ? 'Adicionar ao estoque' : 'Nova lista';
+  if (nl) nl.textContent = current === 'estoque' ? 'Atualizar estoque' : 'Nova lista';
   document.title = current === 'listas' ? 'Zelo' : `${immersive ? store.get(param)?.name || 'Lista' : view.title}, Zelo`;
   render(changed);
   if (changed) window.scrollTo(0, 0);

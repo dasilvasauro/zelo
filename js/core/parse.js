@@ -7,7 +7,7 @@
 //   "dois pacotinhos de queijo ralado"    → 2 × Queijo ralado (diminutivos e embalagens)
 //   "duas latinhas de suco bonbon, 9,90"  → 2 × Suco bonbon, R$ 9,90 cada (produto novo, se não existir)
 import { bestMatch, vocab, heads } from './catalog.js';
-import { norm } from '../lib/util.js';
+import { norm, titleCase } from '../lib/util.js';
 
 const WORDS = {
   um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10,
@@ -26,7 +26,7 @@ const PACK = new Map(Object.entries({
   bandeja: 'un', sache: 'un', tubo: 'un', galao: 'gal', fardo: 'un', maco: 'un', cartela: 'un', barra: 'un',
   par: 'par', kit: 'kit', cacho: 'un', copo: 'un', embalagem: 'un', refil: 'un',
 }));
-const LEAD = new Set(['adicionar', 'adiciona', 'colocar', 'coloca', 'coloque', 'por', 'poe', 'comprar', 'compra', 'mais', 'tambem', 'e', 'add', 'quero', 'preciso', 'de']);
+const LEAD = new Set(['tenho', 'temos', 'tem', 'sobrou', 'sobraram', 'restam', 'resta', 'chegou', 'chegaram', 'comprei', 'adicionar', 'adiciona', 'colocar', 'coloca', 'coloque', 'por', 'poe', 'comprar', 'compra', 'mais', 'tambem', 'e', 'add', 'quero', 'preciso', 'de']);
 const CONNECT = new Set(['de', 'do', 'da', 'dos', 'das']);
 const FILLER = new Set(['de', 'do', 'da', 'dos', 'das', 'o', 'a', 'os', 'as', 'por', 'cada', 'reais', 'real', 'centavos', 'r$', 'rs', 'x', 'com', 'em', 'pra', 'para']);
 
@@ -130,6 +130,17 @@ export function parseOne(text) {
       return ' ';
     });
 
+  // "café acabou", "não tem açúcar", "zero de arroz": quantidade zero (usado na contagem do estoque).
+  let zero = false;
+  t = t.replace(/\s(acabou|acabaram|acabado|acabada|zerou|zerado|zerada|nenhum|nenhuma|zero|faltando)(?=\s)/gi, () => {
+    zero = true;
+    return ' ';
+  });
+  t = t.replace(/\s(n[aã]o\s+tem|n[aã]o\s+temos|n[aã]o\s+h[aá]|sem\s+nada\s+de)(?=\s)/gi, () => {
+    zero = true;
+    return ' ';
+  });
+
   // Separa número colado em letra: "1,2kg" → "1,2 kg", "2x" → "2 x", "x2" → "x 2"
   t = t.replace(/(\d)([a-zà-ú])/gi, '$1 $2').replace(/\bx(\d)/gi, 'x $1');
   let toks = t.split(/\s+/).filter(Boolean);
@@ -208,8 +219,10 @@ export function parseOne(text) {
   return {
     text: raw,
     pid: p?.id || null,
-    name: p ? p.name : cap(display),
-    qty: qty ?? 1,
+    name: p ? p.name : titleCase(display),
+    qty: zero ? 0 : qty ?? 1,
+    qtyGiven: zero || qty != null,
+    zero,
     unit: unit || 'un',
     price,
     known: !!p,

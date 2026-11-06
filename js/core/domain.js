@@ -9,7 +9,7 @@
 import * as store from './store.js';
 import { product, sectionName, sectionOrder, domainOf, guessSection } from './catalog.js';
 import { nowMs, today } from '../lib/clock.js';
-import { addDays, isoOf, uid, norm, WEIGHT_UNITS } from '../lib/util.js';
+import { addDays, isoOf, uid, norm, WEIGHT_UNITS, titleCase } from '../lib/util.js';
 import { trimTo, purchaseUnits } from './units.js';
 
 const DAY = 86400000;
@@ -20,7 +20,7 @@ export function prodOf(pid, item) {
   if (p) return p;
   // Itens antigos sem produto cadastrado: usa o nome guardado no estoque.
   const inv = item || store.get(`i_${pid}`);
-  return { id: pid, name: inv?.name || 'Item', unit: inv?.unit || 'un', section: inv?.section || 'outros', domain: domainOf(inv?.section), aliases: [] };
+  return { id: pid, name: titleCase(inv?.name || 'Item'), unit: inv?.unit || 'un', section: inv?.section || 'outros', domain: domainOf(inv?.section), aliases: [] };
 }
 
 // Produto que não existe no catálogo (dito pela voz ou digitado): vira um produto da casa, cifrado e
@@ -31,10 +31,10 @@ export async function ensureProduct(name, unit = 'un') {
   const id = `u_${norm(clean).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
   if (product(id) || store.get(id)) return id;
   const section = guessSection(clean);
-  await store.save('prod', { name: clean[0].toUpperCase() + clean.slice(1), section, domain: domainOf(section), unit, aliases: [], auto: true }, id);
+  await store.save('prod', { name: titleCase(clean), section, domain: domainOf(section), unit, aliases: [], auto: true }, id);
   return id;
 }
-export const nameOf = (x) => x.name || prodOf(x.pid, x).name;
+export const nameOf = (x) => titleCase(x.name || prodOf(x.pid, x).name);
 export const isWeight = (u) => WEIGHT_UNITS.has(u);
 
 /* ---------- Estoque ---------- */
@@ -110,7 +110,7 @@ export function inventoryRows(S) {
     if (inv?.archived) continue;
     const p = prodOf(pid, inv);
     const qty = invQty(S, pid);
-    rows.push({ pid, inv, p, name: inv?.name || p.name, unit: inv?.unit || p.unit, qty, essential: !!inv?.essential, min: inv?.min ?? null, place: inv?.place || '', status: invStatus(inv, qty), section: p.section, domain: p.domain });
+    rows.push({ pid, inv, p, name: titleCase(product(pid) ? p.name : inv?.name || p.name), unit: inv?.unit || p.unit, qty, essential: !!inv?.essential, min: inv?.min ?? null, place: inv?.place || '', status: invStatus(inv, qty), section: p.section, domain: p.domain });
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }

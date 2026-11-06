@@ -5,7 +5,7 @@
 //
 // Formato de cada item: "Nome[@unidade][~apelido1,apelido2]". Os apelidos ajudam a busca, a digitação
 // rápida e a voz, inclusive com termos em inglês comuns no mercado.
-import { norm } from '../lib/util.js';
+import { norm, titleCase } from '../lib/util.js';
 
 export const CATALOG_VERSION = 5;
 
@@ -67,7 +67,7 @@ export function buildCatalog(domains = BASE) {
   const seen = new Set();
   for (const dom of DOMAINS) {
     for (const [sid, sname, unit, list] of domains[dom.id] || []) {
-      sections.push({ id: sid, name: sname, domain: dom.id });
+      sections.push({ id: sid, name: titleCase(sname), domain: dom.id });
       for (const raw of list.split(';')) {
         const t = raw.trim();
         if (!t) continue;
@@ -78,7 +78,7 @@ export function buildCatalog(domains = BASE) {
         seen.add(id);
         products.push({
           id,
-          name: name.trim(),
+          name: titleCase(name),
           unit: (u || unit).trim(),
           section: sid,
           domain: dom.id,
@@ -115,7 +115,7 @@ export function useCloudCatalog(domains, v) {
 }
 
 export function setUserProducts(list) {
-  extra = list;
+  extra = list.map((p) => ({ ...p, name: titleCase(p.name), aliases: p.aliases || [] }));
   index = null;
   vocabMap = null;
   headSet = null;

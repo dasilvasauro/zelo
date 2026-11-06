@@ -8,6 +8,8 @@ import { icon, sheet, toast, seg } from '../ui/ui.js';
 import { avatarDot, payName } from './common.js';
 import { app } from '../state.js';
 import { haptic } from '../ui/haptics.js';
+import { alerts as groupAlerts, addSuggestions } from './groups.js';
+import { shortName } from '../core/groups.js';
 
 export const title = 'Listas';
 let unsubP = null;
@@ -22,11 +24,7 @@ export function render(el) {
   const monthTotal = done.filter((l) => isoOf(new Date(l.doneAt || 0)).slice(0, 7) === month).reduce((a, l) => a + (l.total || 0), 0);
 
   el.innerHTML = `
-    ${low.length ? `<section class="alert soft">
-      <div class="alert-txt"><b>${icon('star')}${low.length} ${low.length === 1 ? 'essencial acabando' : 'essenciais acabando'}</b>
-        <span>${esc(low.slice(0, 5).map((r) => r.name).join(', '))}${low.length > 5 ? '…' : ''}</span></div>
-      <div class="alert-acts"><button type="button" class="btn small primary" data-low>Pôr na lista</button><a class="btn small ghost" href="#estoque">Ver estoque</a></div>
-    </section>` : ''}
+    ${smartAlert(S, low)}
 
     <section class="block first">
       <header class="block-head"><h3>Abertas</h3><button type="button" class="btn small" data-new>${icon('plus')}Nova lista</button></header>
@@ -47,6 +45,12 @@ export function render(el) {
     </section>`;
 
   el.querySelectorAll('[data-new]').forEach((b) => b.addEventListener('click', createList));
+  el.querySelector('[data-smart]')?.addEventListener('click', () => {
+    const S2 = store.snapshot();
+    const gs = groupAlerts(S2);
+    const covered = new Set(gs.flatMap((e) => e.members.map((m) => m.pid)));
+    addSuggestions([...gs.flatMap((e) => e.suggest), ...essentialsLow(S2).filter((r) => !covered.has(r.pid))]);
+  });
   el.querySelector('[data-low]')?.addEventListener('click', async () => {
     const S2 = store.snapshot();
     let target = S2.list.find((l) => l.status !== 'done' && (l.domain || 'mercado') === 'mercado') || S2.list.find((l) => l.status !== 'done');
@@ -70,6 +74,25 @@ function card(S, l) {
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div class="lc-foot"><span>${t.checked}/${t.n} itens</span><span>${t.checked ? `<b>${money(t.cart)}</b> no carrinho` : t.est ? `previsto ${money(t.est)}` : ''}</span></div>
   </button>`;
+}
+
+// Avisos inteligentes: grupos essenciais acabando (com o essencial pelo nome) e essenciais soltos.
+function smartAlert(S, low) {
+  const gs = groupAlerts(S);
+  const covered = new Set(gs.flatMap((e) => e.members.map((m) => m.pid)));
+  const loose = low.filter((r) => !covered.has(r.pid));
+  const lines = [
+    ...gs.map((e) => ({ t: e.message, s: e.sub || e.detail, out: e.state === 'out' })),
+    ...(loose.length ? [{ t: loose.length === 1 ? `${shortName(loose[0].name)} ${loose[0].qty <= 0 ? 'acabou' : 'quase no fim'}` : `${loose.length} essenciais acabando`, s: loose.length > 1 ? loose.slice(0, 4).map((r) => shortName(r.name)).join(', ') : '', out: false }] : []),
+  ];
+  if (!lines.length) return '';
+  return `<section class="alert soft smart-alert">
+    <div class="alert-txt">${lines
+      .slice(0, 4)
+      .map((l) => `<div class="sa-line${l.out ? ' out' : ''}">${icon(l.out ? 'bolt' : 'star', 'sm2')}<span><b>${esc(l.t)}</b>${l.s ? `<small>${esc(l.s)}</small>` : ''}</span></div>`)
+      .join('')}</div>
+    <div class="alert-acts"><button type="button" class="btn small primary" data-smart>${icon('cart', 'sm2')}Pôr na lista</button><a class="btn small ghost" href="#estoque">Ver estoque</a></div>
+  </section>`;
 }
 
 export function createList() {

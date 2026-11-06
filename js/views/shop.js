@@ -8,7 +8,7 @@ import { setFocus, onPresence, inList, onItem } from '../core/presence.js';
 import { esc, money, fmtNum, unitLabel } from '../lib/util.js';
 import { icon, toast, confirmDialog, promptDialog } from '../ui/ui.js';
 import { popover } from '../ui/pickers.js';
-import { railHtml, bindRail, letterOf } from '../ui/rail.js';
+import { railHtml, bindRail, letterOf, scrollToEl } from '../ui/rail.js';
 import { trendChip, refLine, avatarDot, pickStore, conflictCards, bindConflicts } from './common.js';
 import { editPrice, openItem } from './itemedit.js';
 import { openAdd } from './add.js';
@@ -128,12 +128,12 @@ export function render(el, listId) {
             : groups.map((g) => `<section class="grp" data-grp="${esc(g.key)}">${g.label ? `<h3 class="grp-head">${esc(g.label)}<small>${g.items.length}</small></h3>` : ''}${g.items.map(row).join('')}</section>`).join('')
       }
     </div>
-    ${items.length >= 5 ? railHtml(letters) : ''}
 
     ${confs.length ? `<div class="shop-conf">${conflictCards(S, confs)}</div>` : ''}
 
     ${done ? `<div class="shop-bar"><span class="done-tag">${icon('check')}Compra concluída</span><button type="button" class="btn primary big" data-repeat>${icon('refresh')}Repetir compra</button></div>` : `
     <div class="shop-bar">
+      ${items.length >= 5 ? railHtml(letters, 'in-bar') : ''}
       <div class="seg small shop-filter" role="radiogroup" aria-label="Mostrar">
         ${[['faltam', 'Faltam'], ['carrinho', 'Carrinho'], ['todos', 'Todos']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${filter === v}" class="${filter === v ? 'on' : ''}" data-filter="${v}">${l}<em>${counts[v]}</em></button>`).join('')}
       </div>
@@ -237,22 +237,16 @@ function bind(el, listId, list) {
       if (g) window.scrollTo({ top: g.getBoundingClientRect().top + window.scrollY - stickyOffset(el), behavior: 'smooth' });
     }),
   );
-  bindRail(el, (l) => {
-    if (prefs().sort !== 'az') {
-      setPref('sort', 'az');
-      app.refresh();
-      requestAnimationFrame(() => jumpLetter(document.getElementById('view'), l));
-      return;
-    }
-    jumpLetter(el, l);
-  });
+  // Pula para o primeiro item com a letra, na ordem atual (sem reordenar a lista no meio do gesto).
+  bindRail(el.querySelector('.shop-bar') || el, (l) => jumpLetter(el, l));
   bindConflicts(el);
 }
 
 function stickyOffset(el) {
   const h = el.querySelector('.shop-head');
   const c = el.querySelector('.sec-chips');
-  return (h?.offsetHeight || 0) + (c?.offsetHeight || 0) + 8;
+  const top = document.querySelector('.head')?.offsetHeight || 0;
+  return top + (h?.offsetHeight || 0) + (c?.offsetHeight || 0) + 8;
 }
 
 function jumpLetter(el, l) {
